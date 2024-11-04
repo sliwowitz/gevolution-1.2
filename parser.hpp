@@ -1745,7 +1745,7 @@ int parseMetadata(parameter * & params, const int numparam, metadata & sim, cosm
 	else
 	{
 		COUT << " cosmological parameters are: Omega_m0 = " << cosmo.Omega_m << ", Omega_rad0 = " << cosmo.Omega_rad << ", h = " << cosmo.h << endl;
-		cosmo.Omega_Lambda = 1. - cosmo.Omega_m - cosmo.Omega_rad - cosmo.Omega_fld;
+		cosmo.Omega_Lambda_0 = 1. - cosmo.Omega_m - cosmo.Omega_rad - cosmo.Omega_fld;
 	}
 
 	if(!parseParameter(params, numparam, "switch delta_rad", sim.z_switch_deltarad))

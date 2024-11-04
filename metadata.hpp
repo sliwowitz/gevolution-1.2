@@ -273,7 +273,7 @@ struct cosmology
 	double Omega_cdm;
 	double Omega_b;
 	double Omega_m;
-	double Omega_Lambda;
+	double Omega_Lambda_0;
 	double Omega_fld;
 	double w0_fld;
 	double wa_fld;

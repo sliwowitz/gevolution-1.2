@@ -364,7 +364,7 @@ void writeSnapshots(metadata & sim, cosmology & cosmo, const double fourpiG, con
 		else
 			hdr.num_files = 1;
 		hdr.Omega0 = cosmo.Omega_m;
-		hdr.OmegaLambda = cosmo.Omega_Lambda;
+		hdr.OmegaLambda = Omega_Lambda_now(a, cosmo);
 		hdr.HubbleParam = cosmo.h;
 		hdr.BoxSize = sim.boxsize / GADGET_LENGTH_CONVERSION;
 		hdr.flag_sfr = 0;
@@ -1536,7 +1536,7 @@ void writeLightcones(metadata & sim, cosmology & cosmo, const double fourpiG, co
 
 			hdr.num_files = 1;
 			hdr.Omega0 = cosmo.Omega_m;
-			hdr.OmegaLambda = cosmo.Omega_Lambda;
+			hdr.OmegaLambda = Omega_Lambda_now(a, cosmo);
 			hdr.HubbleParam = cosmo.h;
 			hdr.BoxSize = sim.boxsize / GADGET_LENGTH_CONVERSION;
 			hdr.flag_sfr = 0;
