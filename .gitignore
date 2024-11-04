@@ -2,3 +2,5 @@ LATfield2
 /doc/html/
 .idea
 /gevolution
+/cmake-build*
+/output
