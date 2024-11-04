@@ -1,8 +1,9 @@
 # programming environment
-COMPILER     := mpic++
-INCLUDE      := # add the path to LATfield2 and other libraries (if necessary)
+COMPILER     := /usr/lib64/openmpi/bin/mpic++
+INCLUDE      := -I./LATfield2
 LIB          := -lfftw3 -lm -lhdf5 -lgsl -lgslcblas
 HPXCXXLIB    := -lhealpix_cxx -lcfitsio
+#HPXCXXLIB    := -lcfitsio
 
 # target and source
 EXEC         := gevolution
@@ -38,6 +39,8 @@ lccat: lccat.cpp
 	
 lcmap: lcmap.cpp
 	$(COMPILER) $< -o $@ $(OPT) -fopenmp $(DGEVOLUTION) $(INCLUDE) $(LIB) $(HPXCXXLIB)
+
+all: $(EXEC) lccat lcmap
 
 clean:
 	-rm -f $(EXEC) lccat lcmap
