@@ -119,12 +119,38 @@ double bg_ncdm(const double a, const cosmology cosmo)
 }
 
 
-double Omega_Lambda_now(const double a, const cosmology cosmo){
-    if(a < 0.341672){
-        return (-cosmo.Omega_Lambda_0);
-    } else {
+// Default Omega_Lambda_now functor
+struct OmegaLambdaNowDefault
+{
+    inline double operator()(double a, const cosmology &cosmo) const
+    {
+        if (a < 0.341672)
+            return -cosmo.Omega_Lambda_0;
+        else
+            return cosmo.Omega_Lambda_0;
+    }
+};
+
+// Omega_Lambda_now functor for before the discontinuity (always negative)
+struct OmegaLambdaNegative
+{
+    inline double operator()(double a, const cosmology &cosmo) const
+    {
+        return -cosmo.Omega_Lambda_0;
+    }
+};
+
+// Omega_Lambda_now functor for after the discontinuity (always positive)
+struct OmegaLambdaPositive
+{
+    inline double operator()(double a, const cosmology &cosmo) const
+    {
         return cosmo.Omega_Lambda_0;
     }
+};
+
+double Omega_Lambda_now(const double a, const cosmology cosmo) {
+    return OmegaLambdaNowDefault()(a, cosmo);
 }
 
 //////////////////////////
@@ -142,9 +168,16 @@ double Omega_Lambda_now(const double a, const cosmology cosmo){
 // 
 //////////////////////////
 
-double Hconf(const double a, const double fourpiG, const cosmology cosmo)
-{	
-	return sqrt((2. * fourpiG / 3.) * (((cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo)) / a) + (Omega_Lambda_now(a, cosmo) * a * a) + (cosmo.Omega_rad / a / a) + (cosmo.Omega_fld * exp(3. * cosmo.wa_fld * (a - 1.)) / pow(a, 1. + 3. * (cosmo.w0_fld + cosmo.wa_fld)))));
+template <typename TOmegaLambdaFunc = OmegaLambdaNowDefault>
+double Hconf(const double a, const double fourpiG, const cosmology cosmo, TOmegaLambdaFunc omegaLambdaNowFunc = TOmegaLambdaFunc())
+{
+    double Omega_Lambda_eff = omegaLambdaNowFunc(a, cosmo);
+	return   sqrt((2. * fourpiG / 3.)
+           * (  ((cosmo.Omega_cdm + cosmo.Omega_b + bg_ncdm(a, cosmo)) / a)
+              + (Omega_Lambda_eff * a * a)
+              + (cosmo.Omega_rad / a / a)
+              + (cosmo.Omega_fld * exp(3. * cosmo.wa_fld * (a - 1.)) / pow(a, 1. + 3. * (cosmo.w0_fld + cosmo.wa_fld)))
+             ));
 }
 
 
@@ -172,16 +205,56 @@ double Omega_Lambda(const double a, const cosmology cosmo) { return Omega_Lambda
 // 
 //////////////////////////
 
+
+// Template for RK4 step
+template <typename TOmegaLambdaFunc>
+double rk4_step(double a, const double fourpiG, const cosmology &cosmo, const double dtau)
+{
+    double k1a, k2a, k3a, k4a;
+
+    k1a = a * Hconf<TOmegaLambdaFunc>(a, fourpiG, cosmo);
+    k2a = (a + k1a * dtau / 2.) * Hconf<TOmegaLambdaFunc>(a + k1a * dtau / 2., fourpiG, cosmo);
+    k3a = (a + k2a * dtau / 2.) * Hconf<TOmegaLambdaFunc>(a + k2a * dtau / 2., fourpiG, cosmo);
+    k4a = (a + k3a * dtau) * Hconf<TOmegaLambdaFunc>(a + k3a * dtau, fourpiG, cosmo);
+
+    return a + dtau * (k1a + 2. * k2a + 2. * k3a + k4a) / 6.;
+}
+
 void rungekutta4bg(double &a, const double fourpiG, const cosmology cosmo, const double dtau)
 {
-	double k1a, k2a, k3a, k4a;
+    const double a_discontinuity = 0.341672;
+    double a_new;
 
-	k1a = a * Hconf(a, fourpiG, cosmo); 
-	k2a = (a + k1a * dtau / 2.) * Hconf(a + k1a * dtau / 2., fourpiG, cosmo);
-	k3a = (a + k2a * dtau / 2.) * Hconf(a + k2a * dtau / 2., fourpiG, cosmo);
-	k4a = (a + k3a * dtau) * Hconf(a + k3a * dtau, fourpiG, cosmo);
+    // Step 1: Perform the full integration step
+    a_new = rk4_step<OmegaLambdaNowDefault>(a, fourpiG, cosmo, dtau);
 
-	a += dtau * (k1a + 2. * k2a + 2. * k3a + k4a) / 6.;
+    // Step 2: Check if we crossed the discontinuity
+    if (a < a_discontinuity && a_new > a_discontinuity)
+    {
+        // Step 3: Estimate dtau to reach the discontinuity
+        double H_at_a = Hconf<OmegaLambdaNowDefault>(a, fourpiG, cosmo);
+        double dtau_to_discontinuity = (a_discontinuity - a) / (a * H_at_a);
+        double dtau_remaining = dtau - dtau_to_discontinuity;
+
+        // Step 4: Integrate the first part using OmegaLambdaNegative
+        a = rk4_step<OmegaLambdaNegative>(a, fourpiG, cosmo, dtau_to_discontinuity);
+
+        // Step 5: Integrate the second part using OmegaLambdaPositive
+        a = rk4_step<OmegaLambdaPositive>(a, fourpiG, cosmo, dtau_remaining);
+
+        // Step 6: Check if a < a_discontinuity
+        if (a < a_discontinuity)
+        {
+            // Handle the unexpected result
+            fprintf(stderr, "Error: Integration resulted in a < a_discontinuity.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        // No discontinuity crossed; update 'a'
+        a = a_new;
+    }
 }
 
 
