@@ -280,6 +280,7 @@ double particleHorizonIntegrand(double sqrta, void * cosmo)
 
 double particleHorizon(const double a, const double fourpiG, cosmology & cosmo)
 {
+    double a_discontinuity = 0.341672;
 	double result;
 	gsl_function f;
 	double err;
@@ -287,8 +288,15 @@ double particleHorizon(const double a, const double fourpiG, cosmology & cosmo)
 	
 	f.function = &particleHorizonIntegrand;
 	f.params = &cosmo;
-	
-	gsl_integration_qng(&f, sqrt(a) * 1.0e-7, sqrt(a), 5.0e-7, 1.0e-7, &result, &err, &n);
+
+    if (a < a_discontinuity) {
+        gsl_integration_qng(&f, sqrt(a) * 1.0e-7, sqrt(a), 5.0e-7, 1.0e-7, &result, &err, &n);
+    } else {
+        double result1, result2;
+        gsl_integration_qng(&f, sqrt(a_discontinuity) * 1.0e-7, sqrt(a_discontinuity), 5.0e-7, 1.0e-7, &result1, &err, &n);
+        gsl_integration_qng(&f, sqrt(a_discontinuity), sqrt(a), 5.0e-7, 1.0e-7, &result2, &err, &n);
+        result = result1 + result2;
+    }
 	
 	return result / sqrt(fourpiG);
 }
