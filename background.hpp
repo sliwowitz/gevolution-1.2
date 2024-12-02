@@ -278,27 +278,52 @@ double particleHorizonIntegrand(double sqrta, void * cosmo)
 // 
 //////////////////////////
 
-double particleHorizon(const double a, const double fourpiG, cosmology & cosmo)
+double particleHorizon(const double a, const double fourpiG, cosmology &cosmo)
 {
-    double a_discontinuity = 0.341672;
-	double result;
-	gsl_function f;
-	double err;
-	size_t n;
-	
-	f.function = &particleHorizonIntegrand;
-	f.params = &cosmo;
+    double result = 0.0;
+    double err;
+    size_t n;
+    gsl_function f;
+    f.function = &particleHorizonIntegrand;
+    f.params = &cosmo;
 
-    if (a < a_discontinuity) {
-        gsl_integration_qng(&f, sqrt(a) * 1.0e-7, sqrt(a), 5.0e-7, 1.0e-7, &result, &err, &n);
-    } else {
-        double result1, result2;
-        gsl_integration_qng(&f, sqrt(a_discontinuity) * 1.0e-7, sqrt(a_discontinuity), 5.0e-7, 1.0e-7, &result1, &err, &n);
-        gsl_integration_qng(&f, sqrt(a_discontinuity), sqrt(a), 5.0e-7, 1.0e-7, &result2, &err, &n);
+    const double a_disc = 0.341672;
+    const double sqrt_a_disc = sqrt(a_disc);
+
+    double lower_limit = sqrt(a) * 1.0e-7;
+    double upper_limit = sqrt(a);
+
+    double epsilon = 1e-8 * upper_limit;
+    if (epsilon == 0.0)
+    {
+        epsilon = 1e-8;
+    }
+
+    if (upper_limit <= sqrt_a_disc - epsilon || lower_limit >= sqrt_a_disc + epsilon)
+    {
+        gsl_integration_qng(&f, lower_limit, upper_limit, 5.0e-7, 1.0e-7, &result, &err, &n);
+    }
+    else
+    {
+        double result1 = 0.0, result2 = 0.0;
+
+        double limit1_upper = sqrt_a_disc - epsilon * sqrt_a_disc;
+        double limit2_lower = sqrt_a_disc + epsilon * sqrt_a_disc;
+
+        if (limit1_upper > lower_limit)
+        {
+            gsl_integration_qng(&f, lower_limit, limit1_upper, 5.0e-7, 1.0e-7, &result1, &err, &n);
+        }
+
+        if (upper_limit > limit2_lower)
+        {
+            gsl_integration_qng(&f, limit2_lower, upper_limit, 5.0e-7, 1.0e-7, &result2, &err, &n);
+        }
+
         result = result1 + result2;
     }
-	
-	return result / sqrt(fourpiG);
+
+    return result / sqrt(fourpiG);
 }
 
 #endif
